@@ -12,15 +12,18 @@ export default async (req: NextApiRequest, res: NextApiResponse) => {
   try {
     const data = await spotifyApi.getMyCurrentPlayingTrack();
     
-    if (!data.body?.item) {
+    const item = data.body?.item;
+
+    // The current item may also be a podcast episode, which has no artist/album.
+    if (!item || item.type !== 'track') {
       res.status(404).json({ error: 'Track data not found' });
       return;
     }
 
     const track = {
-      title: data.body.item?.name,
-      artist: data.body.item?.artists?.[0]?.name,
-      coverArtUrl: data.body.item?.album?.images?.[0]?.url
+      title: item.name,
+      artist: item.artists?.[0]?.name,
+      coverArtUrl: item.album?.images?.[0]?.url
     };
 
     res.status(200).json(track);
