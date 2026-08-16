@@ -24,6 +24,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# audio library — ~472MB, kept out of git history on purpose.
+# The files live in public/audio locally; see public/audio/README.md.
+/public/audio/*.mp3
+
 # local env files
 .env*.local
 

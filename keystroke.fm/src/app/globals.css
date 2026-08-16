@@ -1,61 +1,543 @@
-body {
-  background: linear-gradient(180deg, #D3D3D3 100%, #ACACAC 100%);
-  overflow: hidden;
-  font-family: 'Altertype';
-}
-
 @font-face {
   font-family: 'Altertype';
-    src: url('/fonts/altertype-Regular.otf') format('opentype');
-}
-
-h1 {
-  color: #222;
-  font-size: 15px;
+  src: url('/fonts/altertype-Regular.otf') format('opentype');
+  font-weight: 400;
   font-style: normal;
-  font-weight: 300;
-  line-height: normal;
-  letter-spacing: 7.5px;
+  font-display: swap;
 }
 
-header {
-  display: flex;
+:root {
+  --ink: #222;
+  --ink-dim: rgba(34, 34, 34, 0.4);
+  --bg-top: #d3d3d3;
+  --bg-bottom: #acacac;
+
+  /* Selection and focus highlight. Semi-transparent so it reads the same
+     against both ends of the background gradient. */
+  --highlight: rgba(34, 34, 34, 0.18);
+
+  /* Frame margins: 130px / 70px in the 1920x1080 design. */
+  --margin-x: clamp(24px, 6.77vw, 130px);
+  --margin-y: clamp(24px, 6.48vh, 70px);
+
+  /* Slow, settling ease shared by the hover transitions. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: var(--highlight);
+  color: var(--ink);
+}
+
+::-moz-selection {
+  background: var(--highlight);
+  color: var(--ink);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+  font-family: 'Altertype', ui-sans-serif, system-ui, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: var(--highlight);
+}
+
+.stage {
+  position: relative;
   width: 100%;
-  margin-top: 70px;
-  position: absolute;
-}
-
-.start {
-  padding-left: 130px;
-}
-
-.end {
-  margin-left: auto;
-  padding-right: 130px;
-  text-align: right;
-}
-
-footer {
-  display: flex;
-  width: 100%;
-  bottom: 0;
-  margin-bottom: 70px;
-  position: absolute;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .backgroundGrain {
-  width: 100%;
-  height: 100%;
-  mix-blend-mode: overlay;
-  opacity: 10%;
-  z-index: -100;
   position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: url('/images/grain.png');
+  background-size: 100px 100px;
+  background-position: top left;
+  background-repeat: repeat;
+  mix-blend-mode: overlay;
+  opacity: 0.1;
+  pointer-events: none;
 }
+
+/* ---------------------------------------------------------------- header */
+
+header {
+  position: absolute;
+  z-index: 2;
+  top: var(--margin-y);
+  left: var(--margin-x);
+  right: var(--margin-x);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+h1 {
+  --trail: 7.5px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 300;
+  font-style: normal;
+  line-height: normal;
+  letter-spacing: var(--trail);
+  text-transform: lowercase;
+  color: var(--ink);
+}
+
+/* Trailing letter-space would otherwise push the right edge off the margin. */
+.end {
+  text-align: right;
+  margin-right: calc(var(--trail) * -1);
+}
+
+.mark {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  display: block;
+  width: 15px;
+  height: 20px;
+  transform: translateX(-50%);
+}
+
+/* SVG underline drawn in from the left on hover. */
+.hoverRule {
+  position: relative;
+  display: inline-block;
+  cursor: default;
+}
+
+/* Forgiving hover target. Done with a pseudo-element rather than padding: the
+   rule's width resolves against this box, so padding would stretch it too. */
+.hoverRule::before {
+  content: '';
+  position: absolute;
+  inset: -14px -12px;
+}
+
+/* Width is set explicitly: an <svg> has intrinsic dimensions, so left/right
+   alone would leave it at its 100-unit viewBox width. Trimming the trailing
+   letter-space lands the rule on the last glyph. */
+.hoverRule__svg {
+  position: absolute;
+  left: 0;
+  bottom: -7px;
+  width: calc(100% - var(--trail));
+  height: 1px;
+  overflow: visible;
+  /* Resting collapsed at the right, so leaving retracts towards the right. */
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 900ms var(--ease-out);
+}
+
+/* Origin flips instantly while scaleX is 0 or 1, where both origins render
+   identically — so the rule sweeps left-to-right entering and leaving. */
+.hoverRule:hover .hoverRule__svg {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
+.hoverRule__svg line {
+  stroke: var(--ink);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ----------------------------------------------------------------- piano */
 
 .piano {
   position: absolute;
-  width: 300px;
   z-index: 1;
-  top: 25%;
-  left: 41%;
+  /* Design box: 412.973 x 523.243 at (769, 227) -> centre (975.49, 488.62). */
+  top: 45.24%;
+  left: 50.81%;
+  height: clamp(200px, 48.4vh, 523px);
+  aspect-ratio: 412.973 / 523.243;
+  transform: translate(-50%, -50%);
+}
+
+.piano__shadow,
+.piano__body {
+  position: absolute;
+  display: block;
+}
+
+/* Radial-gradient ellipses grounding the piano, placed by centre point. */
+.piano__shadow {
+  transform: translate(-50%, -50%) rotate(var(--rot));
+}
+
+.piano__body {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- player */
+
+footer {
+  position: absolute;
+  z-index: 2;
+  left: var(--margin-x);
+  right: var(--margin-x);
+  bottom: var(--margin-y);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.player {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 30px;
+}
+
+.player__art {
+  position: relative;
+  flex: none;
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  background: #c4c4c4;
+  overflow: hidden;
+  transition: box-shadow 400ms ease;
+}
+
+/* The artwork lifts while a track is playing. */
+.player--playing .player__art {
+  box-shadow: 0 5px 10px rgba(34, 34, 34, 0.3);
+}
+
+.player__art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.player__body {
+  position: relative;
+  flex: none;
+  width: 340px;
+  height: 120px;
+}
+
+.player__meta {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  max-width: 100%;
+  font-size: 15px;
+  line-height: 15px;
+  letter-spacing: 3px;
+  text-transform: lowercase;
+  white-space: nowrap;
+  /* Calligraph splits the label into per-character spans, so text-overflow
+     has nothing to ellipsize — long titles are clipped at the column edge. */
+  overflow: hidden;
+}
+
+.player__artist {
+  top: 30px;
+}
+
+.player__transport {
+  position: absolute;
+  top: 71px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 50px;
+}
+
+.iconButton {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.iconButton:hover {
+  opacity: 0.55;
+}
+
+/* The element the press spring scales. */
+.iconButton__inner {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.iconButton img,
+.iconButton svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+/* Play and pause occupy the same box so they cross-fade in place. */
+.iconButton__glyph {
+  position: absolute;
+  inset: 0;
+}
+
+/* Song timeline: full track at 40% ink, elapsed portion at full ink. */
+.player__progress {
+  position: absolute;
+  top: 120px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  border-radius: 1px;
+  background: var(--ink-dim);
+}
+
+.player__progressFill {
+  display: block;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--ink);
+}
+
+/* Transparent grab area so the 1px timeline is actually clickable. */
+.player__seek {
+  position: absolute;
+  top: 112px;
+  left: 0;
+  width: 100%;
+  height: 17px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.player__seek:focus-visible,
+.volume__hit:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: 2px;
+}
+
+/* Volume region. Offsets are from the player's origin (design 130, 890):
+   the speaker sits at 596/961 and the slider track at 650, spanning 890-1010. */
+.volume {
+  position: absolute;
+  left: 458px;
+  top: -14px;
+  width: 88px;
+  height: 148px;
+  /* Only the zones and controls below take pointer events. */
+  pointer-events: none;
+}
+
+/* Two rectangles instead of one: the speaker zone stops above the seek bar
+   and the slider zone starts to the right of it, so neither steals its clicks. */
+.volume__zone {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.volume__zone--speaker {
+  left: 0;
+  top: 0;
+  width: 86px;
+  height: 122px;
+}
+
+.volume__zone--slider {
+  left: 48px;
+  top: 0;
+  width: 40px;
+  height: 148px;
+}
+
+.volume__button {
+  position: absolute;
+  left: 8px;
+  top: 85px;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.volume__slider {
+  position: absolute;
+  left: 62px;
+  top: 14px;
+  width: 1px;
+  height: 120px;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 260ms var(--ease-out);
+}
+
+.volume--open .volume__slider {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.volume__track {
+  position: absolute;
+  inset: 0;
+  background: var(--ink-dim);
+}
+
+.volume__fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  background: var(--ink);
+}
+
+.volume__hit {
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 17px;
+  height: 100%;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.spotify {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  transition: transform 400ms var(--ease-out), opacity 300ms ease;
+}
+
+/* Forgiving hover target, wider than the 30px mark itself. The lift is only
+   3px, so the expanded area still covers the cursor and cannot flicker. */
+.spotify::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
+.spotify:hover {
+  transform: translateY(-3px);
+  opacity: 0.55;
+}
+
+.spotify img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Stands in for the volume control on tablet and below, sized to match the
+   transport glyphs rather than the 30px corner mark. */
+.player__spotify {
+  position: absolute;
+  top: 71px;
+  right: 0;
+  display: none;
+  width: 24px;
+  height: 24px;
+}
+
+/* ------------------------------------------------------ tablet and below */
+
+@media (max-width: 1024px) {
+  /* Centred and smaller. The margins cancel out of this offset, so the piano
+     sits midway between the header and the top of the stacked player:
+     ((margin + 18) + (100% - margin - 262)) / 2. */
+  .piano {
+    left: 50%;
+    top: calc(50% - 122px);
+    height: clamp(140px, 26vh, 300px);
+  }
+
+  /* Artwork stacks above the controls. */
+  .player {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 22px;
+    width: 100%;
+  }
+
+  .player__body {
+    width: 100%;
+    max-width: 340px;
+  }
+
+  /* No slider on touch — the device has hardware volume keys. */
+  .volume {
+    display: none;
+  }
+
+  /* The Spotify mark moves into the row, where the volume button was. */
+  .spotify--corner {
+    display: none;
+  }
+
+  .player__spotify {
+    display: block;
+  }
+
+  h1 {
+    --trail: 4px;
+  }
+}
+
+/* Landscape phones are too short to stack 262px of player, so keep the row. */
+@media (max-width: 1024px) and (max-height: 620px) {
+  .player {
+    flex-direction: row;
+    gap: 24px;
+    width: auto;
+  }
+
+  .player__body {
+    width: 340px;
+  }
+
+  .piano {
+    top: calc(50% - 51px);
+    height: clamp(110px, 24vh, 200px);
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    --trail: 2.5px;
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hoverRule__svg,
+  .spotify,
+  .player__art,
+  .volume {
+    transition-duration: 1ms;
+  }
 }
